@@ -20,7 +20,10 @@ class Signer
     self.set_default_signature_method!
   end
 
-  def to_xml
+  def to_xml(options={})
+    body = document.xpath('//soap:Body')
+    body.attr('wsu:Id', options[:id])
+    body.attr('xmlns:wsu',  'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd')
     document.to_xml(:save_with => 0)
   end
 
@@ -120,7 +123,7 @@ class Signer
   #     <o:Reference ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" URI="#uuid-639b8970-7644-4f9e-9bc4-9c2e367808fc-1"/>
   #   </o:SecurityTokenReference>
   # </KeyInfo>
-  def binary_security_token_node
+  def binary_security_token_node(options={})
     node = document.at_xpath('wsse:BinarySecurityToken', wsse: WSSE_NAMESPACE)
     unless node
       node = Nokogiri::XML::Node.new('BinarySecurityToken', document)
@@ -130,13 +133,13 @@ class Signer
       signature_node.add_previous_sibling(node)
       wsse_ns = namespace_prefix(node, WSSE_NAMESPACE, 'wsse')
       wsu_ns = namespace_prefix(node, WSU_NAMESPACE, 'wsu')
-      node["#{wsu_ns}:Id"] = security_token_id
+      node["#{wsu_ns}:Id"] = "security_token_id"
       key_info_node = Nokogiri::XML::Node.new('KeyInfo', document)
       security_token_reference_node = Nokogiri::XML::Node.new("#{wsse_ns}:SecurityTokenReference", document)
       key_info_node.add_child(security_token_reference_node)
       reference_node = Nokogiri::XML::Node.new("#{wsse_ns}:Reference", document)
       reference_node['ValueType'] = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3'
-      reference_node['URI'] = "##{security_token_id}"
+      reference_node['URI'] = security_token_id
       security_token_reference_node.add_child(reference_node)
       signed_info_node.add_next_sibling(key_info_node)
     end
@@ -211,7 +214,7 @@ class Signer
     target_digest = Base64.encode64(@digester.digest(target_canon)).strip
 
     reference_node = Nokogiri::XML::Node.new('Reference', document)
-    reference_node['URI'] = id.to_s.size > 0 ? "##{id}" : ""
+    reference_node['URI'] = id.to_s.size > 0 ? "#_1" : ""
     signed_info_node.add_child(reference_node)
 
     transforms_node = Nokogiri::XML::Node.new('Transforms', document)
